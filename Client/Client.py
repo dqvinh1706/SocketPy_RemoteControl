@@ -12,11 +12,11 @@ PORT = 5050
 HEADER = 64
 FORMAT = 'utf-8'
 
-
 CLIENT = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 """SOCKET PART"""
+
+"""Hàm gửi dữ liệu qua SERVER"""
 def send(msg):
-    
     message = msg.encode(FORMAT)
     msg_length = len(message)
     send_length = str(msg_length).encode(FORMAT)
@@ -26,21 +26,22 @@ def send(msg):
         CLIENT.send(message)
     except socket.error as e:
         raise socket.error(e)
-
+    
+"""Hàm nhận dữ liệu từ SERVER"""
 def receive():
-    """Handles receiving of messages."""
     msg = ""
     try:
         msg_length = CLIENT.recv(HEADER).decode(FORMAT)
     except socket.error:
         raise socket.error
-    except OSError:  # Possibly client has left the chat.
+    except OSError:
         raise OSError
     else:
         if msg_length:
             msg = CLIENT.recv(int(msg_length)).decode(FORMAT)  
         return msg   
 
+"""Hàm bắt đầu kết nối đến SERVER"""
 def start_connect():
     HOST = ip_input.get()
     ADDR = (HOST,PORT)
@@ -55,27 +56,30 @@ def start_connect():
 
 
 """UI PART"""
+
+"""Hàm mở cửa sổ mới"""
 def openNewWindow():
-    # Toplevel object which will 
-    # be treated as a new window
     newWindow = tk.Toplevel(root)
     
-    # sets the title of the
-    # Toplevel widget
     newWindow.title("New Window")
 
     return newWindow
 
+"""Tắt các nút bấm"""
 def disabledButton(list_buttons):
     for item in list_buttons:
         item['state'] = 'disabled' 
 
+"""Bật các nút bấm"""
 def enabledButton(list_buttons):
     for item in list_buttons:
         item['state'] = 'normal'
-             
+ 
+"""Giao diện của process running"""             
 def process_menu():
+    """Hàm xem process list"""
     def Xem():
+        """Gửi lệnh XEM"""
         send("XEM")
         process_list = []
         n = receive()
@@ -88,8 +92,10 @@ def process_menu():
             s3 = receive()
             proc = (s1,s2,s3)
             process_list.append(proc)
+            
         for i in tree.get_children():
             tree.delete(i)
+            
         for item in process_list:
                 tree.insert('', 'end', values=item)
                 # adjust column's width if necessary to fit each value
@@ -97,28 +103,36 @@ def process_menu():
                     col_w = tkFont.Font().measure(val)
                     if tree.column(headers[ix],width=None)<col_w:
                         tree.column(headers[ix], width=col_w)
-     
+    
+    """Giao diện của diệt process""" 
     def kill_form():
         for but in list_of_buttons:
             if but != delete_but:
                 but['state'] = 'disabled'
+                
         send("KILL")
+        
+        """Hàm diệt process theo ID"""
         def kill_id():
+            """Gửi lệnh KILLID và ID của process qua SERVER"""
             send("KILLID")
             send(str(id.get()))
+            
+            """Nhận thông báo từ SERVER"""
             msg = receive()
-            messagebox.showinfo("Status",msg,parent= kill_window)
-            return  
+            messagebox.showinfo("Status",msg,parent= kill_window)  
         
+        """Hàm tắt cửa sổ kill"""
         def kill_closing():
             send("QUIT")
             for but in list_of_buttons:
                 if but != delete_but:
                     but['state'] = 'normal'
             kill_window.destroy()
+            
         kill_window = openNewWindow()
-
         kill_window.title("KILL")
+        
         id = tk.Entry(kill_window,text = "Kill",width = 40)
         id.delete(0,'end')
         id.insert(tk.END,"Nhập ID")
@@ -129,28 +143,38 @@ def process_menu():
         
         kill_window.protocol("WM_DELETE_WINDOW",kill_closing)
     
+    """Hàm xoá bảng"""
     def xoa():
         for i in tree.get_children():
             tree.delete(i)
-            
+    
+    """Hàm giao diện của bắt đầu process"""        
     def start_form():
         for but in list_of_buttons:
             if but != delete_but:
                 but['state'] = 'disabled'
+                
         send("START")
+        
+        """Hàm để bắt đầu chương trình theo tên"""
         def startID():
+            """Gửi lệnh STARTID và tên của app"""
             send("STARTID")
             send(id.get())
+            
+            """Nhận thông báo từ SERVER"""
             msg = receive()
             messagebox.showinfo("Status",msg,parent = start_win)
             return 
         
+        """Hàm tắt cửa sổ của bắt đầu process"""
         def start_closing():
             send("QUIT")
             for but in list_of_buttons:
                 if but != delete_but:
                     but['state'] = 'normal'
             start_win.destroy()
+            
         start_win = openNewWindow()
         start_win.title("START")
         
@@ -163,7 +187,8 @@ def process_menu():
         but.pack(side = tk.LEFT,pady = (2,2),padx = (5,5))
         
         start_win.protocol("WM_DELETE_WINDOW",start_closing)
-        
+    
+    """Hàm tắt cửa sổ của process running"""    
     def exit():
         send("QUIT")
         enabledButton(list_of_main_but)
@@ -172,7 +197,7 @@ def process_menu():
     proc_window = openNewWindow()
     proc_window.title("Process")
     proc_window.geometry("600x600")
-    process_but['state'] = 'disabled'
+    
     list_but = tk.Frame(proc_window)
     list_but.pack(pady = 10)
     kill_but = tk.Button(list_but,text="Kill",width= 5,height=2,command = kill_form)
@@ -206,21 +231,24 @@ def process_menu():
     container.grid_rowconfigure(0, weight=1)
     
     for col in headers:
-        tree.heading(col, text=col.title(),
-            command=lambda c=col: sortby(tree, c, 0))
+        tree.heading(col, text=col.title())
         # adjust the column's width to the header string
         tree.column(col,
             width=tkFont.Font().measure(col.title()))   
     
     proc_window.protocol("WM_DELETE_WINDOW",exit)       
-  
+
+"""Menu giao diện của App Running"""  
 def app_menu():
+    """Hàm để xem app running""" 
     def Xem(): 
+        """Gửi lệnh XEM"""
         send("XEM")
         process_list = []
         n = receive()
         n = int(n)
         
+        """Nhận danh sách cách app"""
         for i in range(0,n):
             s1 = receive()
             s2 = receive()
@@ -230,7 +258,8 @@ def app_menu():
             
         for i in tree.get_children():
             tree.delete(i)
-            
+         
+        """Hiện lên bảng"""    
         for item in process_list:
                 tree.insert('', 'end', values=item)
                 # adjust column's width if necessary to fit each value
@@ -238,30 +267,37 @@ def app_menu():
                     col_w = tkFont.Font().measure(val)
                     if tree.column(headers[ix],width=None)<col_w:
                         tree.column(headers[ix], width=col_w)
-                        
+    
+    """Giao diện của diệt app"""                    
     def kill_form():
         for but in list_of_buttons:
             if but != delete_but:
                 but['state'] = 'disabled'
+                
         send("KILL")
+        """Hàm để tắt app theo ID"""
         def kill_id():
+            """Gửi lệnh KILLID và ID của app qua SERVER"""
             send("KILLID")
             send(str(id.get()))
+            
+            """Nhận thông báo từ client"""
             msg = receive()
             messagebox.showinfo("Status",msg,parent= kill_window)
             return  
         
+        """Hàm đóng cửa sổ kill app"""
         def kill_closing():
             send("QUIT")
             for but in list_of_buttons:
                 if but != delete_but:
                     but['state'] = 'normal'
             kill_window.destroy()
+            
         kill_window = openNewWindow()
-
         kill_window.title("KILL")
-        id = tk.Entry(kill_window,text = "Kill",width = 40)
         
+        id = tk.Entry(kill_window,text = "Kill",width = 40)
         id.delete(0,'end')
         id.insert(tk.END,"Nhập ID")
         id.pack(side = tk.LEFT,pady = (2,2),padx = (5,5))
@@ -271,28 +307,39 @@ def app_menu():
         
         kill_window.protocol("WM_DELETE_WINDOW",kill_closing)
     
+    """Hàm để xoá bảng"""
     def xoa():
         for i in tree.get_children():
             tree.delete(i)
-            
+    
+    """Giao diện của bắt đầu app"""        
     def start_form():
         for but in list_of_buttons:
                 if but != delete_but:
                     but['state'] = 'disabled'
+                    
+        """Gửi lệnh START qua SERVER"""            
         send("START")
+        
+        """Hàm để bắt đầu chương trình theo tên"""
         def startID():
+            """Gửi lệnh STARTID và tên của app"""
             send("STARTID")
             send(id.get())
+            
+            """Nhận thông báo từ SERVER"""
             msg = receive()
             messagebox.showinfo("Status",msg,parent = start_win)
             return 
         
+        """Hàm thoát cửa sổ app running"""
         def start_closing():
             send("QUIT")
             for but in list_of_buttons:
                 if but != delete_but:
                     but['state'] = 'normal'
             start_win.destroy()
+            
         start_win = openNewWindow()
         start_win.title("START")
         
@@ -314,7 +361,7 @@ def app_menu():
     app_window = openNewWindow()
     app_window.title("List App")
     app_window.geometry("600x600")
-    app_but['state'] = 'disabled'
+    
     list_but = tk.Frame(app_window)
     list_but.pack(pady = 10)
     kill_but = tk.Button(list_but,text="Kill",width= 5,height=2,command = kill_form)
@@ -348,35 +395,48 @@ def app_menu():
     container.grid_rowconfigure(0, weight=1)
     
     for col in headers:
-        tree.heading(col, text=col.title(),
-            command=lambda c=col: sortby(tree, c, 0))
+        tree.heading(col, text=col.title())
         # adjust the column's width to the header string
         tree.column(col,
             width=tkFont.Font().measure(col.title()))   
     
     app_window.protocol("WM_DELETE_WINDOW",exit)
-    
+
+
+"""Menu giao diện của keystroke"""    
 def keylog_menu():
+    """Hàm gửi lệnh hook qua SERVER"""
     def hook():
         send("HOOK")
+        
+    """Hàm gửi lệnh unhook qua SERVER"""
     def unHook():
         send("UNHOOK")
+        
+    """Hàm gửi lệnh in phím qua SERVER và nhận chuỗi phím"""
     def printKeys():
         send("PRINT")
         text_box['state'] = 'normal'
+        
+        """Nhận chuỗi phím lưu vào s"""
         s = receive()
         if s != "":
+            """Hiện s lên màn hình"""
             text_box.insert(tk.INSERT,s)
         text_box['state'] = 'disabled'
+    
+    """Hàm để xoá"""
     def xoa():
         text_box['state'] = 'normal'
         text_box.delete('1.0',tk.END)
         text_box['state'] = 'disabled'
-        
+    
+    """Hàm để thoát keystroke"""    
     def exit():
         send("QUIT")
         enabledButton(list_of_main_but)
         keylog_window.destroy()
+    
     keylog_window = openNewWindow()
     keylog_window.title("Key strokes")
     keylog_window.geometry("400x300")
@@ -414,15 +474,16 @@ def keylog_menu():
     text_box['state']= 'disabled'
     
     keylog_window.protocol("WM_DELETE_WINDOW",exit)
-    return
 
+"""Menu giao diện của chức năng chụp màn hình"""
 def screen_shot_menu():
+    """Hàm gửi yêu cầu và nhận hình từ SERVER"""
     def take_pic():
         send("TAKE")
         global img_save
         length_img = receive()
         length_img = int(length_img)
-        
+        print(length_img)
         img_size = receive()
         img_size = eval(img_size)
         
@@ -437,6 +498,7 @@ def screen_shot_menu():
         img_label.image = pic
         img_label.place(x=25, y=25)
     
+    """Hàm để lưu hình ảnh"""
     def save():
         global img_save
         if img_save:
@@ -448,15 +510,20 @@ def screen_shot_menu():
                 messagebox.showwarning("Cancel","Image is not saved!",parent=screen_shot_window) 
         else:
             messagebox.showerror("Error","No screenshot has taken!",parent=screen_shot_window)
+    
+    """Hàm khi nút thoát(X) được bấm """
     def exit():
         send("QUIT")
         enabledButton(list_of_main_but)
         screen_shot_window.destroy()
+    
     screen_shot_window = openNewWindow()
     screen_shot_window.title("Pic")
     screen_shot_window.geometry("720x450")
+    
     global img_save
     img_save = ""
+    
     screen_shot_button = tk.Button(screen_shot_window,text= "Chụp",command= take_pic)
     screen_shot_button.place(x = 620 + 10,y = 25,
                              height = 250,width = 80)
@@ -465,9 +532,9 @@ def screen_shot_menu():
     save_button.place(x = 620 + 10,y = 25+ 250 + 30,
                              height = 120,width = 80)
 
-    screen_shot_window.protocol("WM_DELETE_WINDOW",exit)
-    return  
+    screen_shot_window.protocol("WM_DELETE_WINDOW",exit)  
 
+"""Hàm xử lí khi nút Process Running được bấm"""
 def button_process_clicked():
     if len(str(CLIENT).split()) < 9:
         messagebox.showerror("Error","Chưa kết nối đến server")
@@ -476,6 +543,7 @@ def button_process_clicked():
     disabledButton(list_of_main_but)
     process_menu()
 
+"""Hàm xử lí khi nút App Running được bấm"""
 def app_but_clicked():
     if len(str(CLIENT).split()) < 9:
         messagebox.showerror("Error","Chưa kết nối đến server")
@@ -483,7 +551,8 @@ def app_but_clicked():
     send("APPLICATION")  
     disabledButton(list_of_main_but)
     app_menu()
-
+    
+"""Hàm xử lí khi nút Chụp màn hình được bấm"""    
 def screen_shot_but_clicked():
     if len(str(CLIENT).split()) < 9:
         messagebox.showerror("Error","Chưa kết nối đến server")
@@ -492,6 +561,7 @@ def screen_shot_but_clicked():
     disabledButton(list_of_main_but)    
     screen_shot_menu()
 
+"""Hàm xử lí khi nút KeyStroke được bấm"""    
 def keylog_but_clicked():
     if len(str(CLIENT).split()) < 9:
         messagebox.showerror("Error","Chưa kết nối đến server")
@@ -500,6 +570,23 @@ def keylog_but_clicked():
     disabledButton(list_of_main_but)    
     keylog_menu()
     
+"""Hàm xử lí khi nút Tắt máy được bấm"""        
+def shutdown_but_clicked():
+    if len(str(CLIENT).split()) < 9:
+        messagebox.showerror("Error","Chưa kết nối đến server")
+        return
+    send("SHUTDOWN")
+    CLIENT.close()
+
+"""Hàm xử lí khi nút thoát được bấm"""    
+def exit_but_clicked(): 
+    if len(str(CLIENT).split()) < 9:
+        messagebox.showerror("Error","Chưa kết nối đến server")
+        return 
+    send("QUIT") 
+    root.destroy()
+
+"""Nút thoát(X) của cửa số chương trình"""    
 def root_closing():
     if len(str(CLIENT).split()) == 9:
         try:
@@ -508,7 +595,7 @@ def root_closing():
             CLIENT.close()
     root.destroy()
        
-    
+"""Menu chính"""    
 root = tk.Tk()
 root.title("CLIENT")
 root.geometry("450x300")
@@ -554,7 +641,7 @@ app_but.place(
 
 shutdown_but = tk.Button(root,
                     text = "Tắt máy",
-                    command =None
+                    command =shutdown_but_clicked
                     )
 shutdown_but.place(
                 x =100+10+5,y =30+20+10+75,
@@ -595,7 +682,7 @@ keystroke_but.place(
 
 exit_but = tk.Button(root,
                 text = "Thoát",
-                command = None)
+                command = exit_but_clicked)
 
 exit_but.place(
             x =100+10+10+5+300-100 -5 + 60,y =30+20+10 + 75*2,
