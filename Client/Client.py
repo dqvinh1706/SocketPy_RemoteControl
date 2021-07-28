@@ -2,11 +2,15 @@ import tkinter as tk
 from tkinter import messagebox,filedialog 
 import tkinter.ttk as ttk
 import tkinter.font as tkFont
-import threading
-import socket
 from PIL import Image, ImageTk
 import PIL
+
+import threading
+import socket
+
 import os
+import codecs
+import sys
 
 PORT = 5050
 HEADER = 64
@@ -402,7 +406,6 @@ def app_menu():
     
     app_window.protocol("WM_DELETE_WINDOW",exit)
 
-
 """Menu giao diện của keystroke"""    
 def keylog_menu():
     """Hàm gửi lệnh hook qua SERVER"""
@@ -534,6 +537,182 @@ def screen_shot_menu():
 
     screen_shot_window.protocol("WM_DELETE_WINDOW",exit)  
 
+"""Menu giao diện registry"""
+def registry_menu():
+    """Mở đọc file .reg bằng đường dẫn"""
+    def open_reg():
+        global linkPath
+        filename = filedialog.askopenfilename(
+            parent = registry_window,
+            title="Open a file", 
+            filetypes=(("reg file", "*.reg"), ("all files", "*.*"))
+        )
+        if filename:
+            linkPath = filename
+            link_entry.delete(0, tk.END)
+            link_entry.insert(tk.END, linkPath)
+            try:
+                with codecs.open(linkPath, encoding='utf-16') as myfile:
+                    data = myfile.read()
+            except NameError:
+                return
+            else:    
+                text_reg.delete(1.0, tk.END)
+                text_reg.insert('1.0', data)
+        else:
+            messagebox.showerror("File","File is not chosen")
+    
+    """Gửi yêu cầu và nội dung chỉnh sửa qua SERVER"""        
+    def open_reg_file_to_text():
+        send("REG")
+        send(str(text_reg.get(1.0,'end')))
+        
+        msg = receive()
+        messagebox.showinfo("Status",msg,parent =registry_window)
+
+    """Gửi lệnh SEND qua SERVER và nhận kết quả từ SERVER"""
+    def send_registry():
+        """Gửi yêu cầu và dữ liệu cho SERVER"""
+        send("SEND")
+        
+        s = str(selection.get()) 
+        send(s)
+        
+        s = str(choose_path.get())
+        send(s)
+        
+        s = str(name_value.get())
+        send(s)
+        
+        s = str(value.get())
+        send(s)
+        
+        s = str(type.get())
+        send(s) 
+        
+        s = receive()
+        insert_to_text_box(s)
+        
+    """Giao diện để người dùng nhập"""
+    def get_value_form():
+        name_value.place(x = 5, y = 35 + 25 + 5, width = 130, height = 25)
+        value.place_forget()
+        type.place_forget()
+
+    def set_value():
+        name_value.place(x = 5, y = 35 + 25 + 5, width = 130, height = 25)
+        value.place(x = 5 + 130 + 5, y = 35 + 25 + 5, width = 155, height = 25)
+        type.place(x = 5 + 130 + 5 + 155 + 5, y = 35 + 25 + 5, width = 130, height = 25)
+
+    def create_key_form():
+        name_value.place_forget()
+        value.place_forget()
+        type.place_forget()
+        
+    def selected(): 
+        selected_option = str(selection.get())  
+        if selected_option == "Get value":
+            get_value_form()
+        elif selected_option == "Set value":
+            set_value()
+        elif selected_option == "Delete value":
+            get_value_form()
+        elif selected_option == "Create key":
+            create_key_form()
+        elif selected_option == "Delete key":
+            create_key_form()
+
+    """Điền giá trị vào text box"""
+    def insert_to_text_box(s):
+        value_text['state'] = 'normal'
+        value_text.insert(tk.INSERT,s + "\n")
+        value_text['state'] = 'disabled'
+    """Xoá chữ trong ô text"""    
+    def xoa():
+        value_text['state'] = 'normal'
+        value_text.delete(1.0, tk.END)
+        value_text['state'] = 'disabled'
+        
+    """Hàm thoát cửa sổ"""    
+    def exit():
+        send("QUIT")
+        enabledButton(list_of_main_but)
+        registry_window.destroy()
+            
+    registry_window = openNewWindow()
+    registry_window.title("Registry")
+    registry_window.geometry("480x420")
+    
+    but = tk.Button(registry_window, text ="Browser", command=open_reg)
+    but.place(x = 360, y = 17, width = 100, height = 30)
+
+    reg = tk.StringVar()
+    text_reg = tk.Text(registry_window)
+    text_reg.config(font=("Calibri", 9))
+    text_reg.place(x = 20, y = 60, width = 320, height = 90)
+
+    link_entry = tk.Entry(registry_window)
+    link_entry.insert(tk.END, "Nhập đường dẫn")
+    link_entry.place(x = 20, y = 20, width = 320, height = 25)
+    
+    reg_to_text_button = tk.Button(registry_window, text="Gửi nội dung", command=open_reg_file_to_text)
+    reg_to_text_button.place(x = 360, y = 60, width = 100, height = 50)
+
+    Frame_Options = tk.LabelFrame(registry_window, text="Sửa giá trị trực tiếp")
+    Frame_Options.place(x = 20, y = 165,width = 440,height =240)
+        
+    options1 = [
+        "Get value",
+        "Set value",
+        "Delete value",
+        "Create key",
+        "Delete key"
+    ]
+
+    options2 = [
+        "String",
+        "Binary",
+        "DWORD",
+        "QWORD",
+        "Multi-string",
+        "Expandable String"
+    ]
+
+    selection = ttk.Combobox(Frame_Options, value=options1)
+    selection.insert(0, "Chọn chức năng")
+    selection.bind("<<ComboboxSelected>>",(lambda event: selected()))
+    selection.place(x = 5, y = 5, width = 425, height = 25)
+
+    choose_path = tk.Entry(Frame_Options)
+    choose_path.insert(0, "Đường dẫn")
+    choose_path.place(x = 5, y = 35, width = 425, height = 25)
+
+    name_value = tk.Entry(Frame_Options)
+    name_value.insert(0, "Name value")
+    name_value.place(x = 5, y = 35 + 25 + 5, width = 130, height = 25)
+
+    value = tk.Entry(Frame_Options)
+    value.insert(0, "Value")
+    value.place(x = 5 + 130 + 5, y = 35 + 25 + 5, width = 155, height = 25)
+
+    type = ttk.Combobox(Frame_Options, value=options2)
+    type.insert(0, "Kiểu dữ liệu")
+    type.place(x = 5 + 130 + 5 + 155 + 5, y = 35 + 25 + 5, width = 130, height = 25)
+
+    value_text = tk.Text(Frame_Options)
+    value_text['state'] = 'disabled'
+    value_text.config(font=("Calibri", 9))
+    value_text.place(x = 5,y = 35 + 25 + 5 + 25 + 5, width = 425, height =90)
+    
+    send_button = tk.Button(Frame_Options, text = "Gửi",command = send_registry)
+    send_button.place(x = 100, y = 35 + 25 + 5 + 25 + 5 + 90 + 5, width = 110, height = 25)
+
+    del_button = tk.Button(Frame_Options, text = "Xóa",command = xoa)
+    del_button.place(x = 160 + 5 + 50, y = 35 + 25 + 5 + 25 + 5 + 90 + 5, width = 120, height = 25)
+
+    registry_window.resizable(False, False)
+    registry_window.protocol("WM_DELETE_WINDOW",exit)
+
 """Hàm xử lí khi nút Process Running được bấm"""
 def button_process_clicked():
     if len(str(CLIENT).split()) < 9:
@@ -580,11 +759,20 @@ def shutdown_but_clicked():
 
 """Hàm xử lí khi nút thoát được bấm"""    
 def exit_but_clicked(): 
+    try:
+        send("QUIT") 
+    finally:
+        root.destroy()
+        sys.exit()
+
+"""Hàm xử lí khi nút Registry được bấm"""
+def reg_but_clicked(): 
     if len(str(CLIENT).split()) < 9:
         messagebox.showerror("Error","Chưa kết nối đến server")
         return 
-    send("QUIT") 
-    root.destroy()
+    send("REGISTRY") 
+    disabledButton(list_of_main_but)   
+    registry_menu()
 
 """Nút thoát(X) của cửa số chương trình"""    
 def root_closing():
@@ -662,7 +850,7 @@ screen_but.place(
 
 reg_but = tk.Button(root,
                 text= "Sửa Registry",
-                command = None)
+                command = reg_but_clicked)
 
 reg_but.place(
             x =100+10+5,y =30+20+10+75+75,
@@ -692,4 +880,5 @@ exit_but.place(
 list_of_main_but = [app_but,process_but,shutdown_but,screen_but,keystroke_but,reg_but,exit_but]
 root.resizable(False, False)
 root.protocol("WM_DELETE_WINDOW", root_closing)
+
 root.mainloop()

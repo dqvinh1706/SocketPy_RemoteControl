@@ -1,17 +1,22 @@
 import socket
 import threading
+import os
+import winreg   
+import sys
+
 import tkinter as tk
 from tkinter import messagebox
-import psutil
-import subprocess
-from subprocess import Popen,CREATE_NEW_CONSOLE
-from pynput.keyboard import Listener
-import logging
-import os
 import pyautogui
 from PIL import Image, ImageTk
 
-HOST = socket.gethostbyname(socket.gethostname())
+from pynput.keyboard import Listener
+import logging
+
+import psutil
+import subprocess
+from subprocess import Popen,CREATE_NEW_CONSOLE,CREATE_NO_WINDOW
+
+HOST = socket.gethostbyname(socket.gethostname()) # Lấy địa chỉ ID theo host name của máy
 PORT = 5050
 HEADER = 64
 FORMAT = 'utf-8'
@@ -48,7 +53,7 @@ def receive(conn):
         """Nhận độ dài dữ liệu"""
         msg_length = conn.recv(HEADER).decode(FORMAT)
     except socket.error:
-        return "QUIT"
+        raise socket.error
     else:   
         if msg_length:
             msg_length = int(msg_length)
@@ -57,7 +62,7 @@ def receive(conn):
         return msg    
     
 """Hàm xử lí yêu cầu process running của client"""  
-def process_menu(conn):
+def process(conn):
     """Hàm để xem process đang chạy của server"""
     def xem(conn):
         list_process = []
@@ -136,7 +141,7 @@ def process_menu(conn):
         func(conn)
 
 """Hàm xử lí yêu cầu app running"""
-def application_menu(conn):
+def application(conn):
     """Hàm để xem app đang chạy của server"""
     def xem(conn):
         list_process = []
@@ -324,7 +329,6 @@ def takeScreenshot(conn):
     """Gửi toàn bộ bytes hình ảnh qua cho client"""
     conn.send(img.tobytes())
   
-
 """Hàm xử lí yếu cầu chụp màn hình của server"""
 def take_pic(conn):
     while True:
@@ -338,25 +342,203 @@ def take_pic(conn):
 def shutdown(conn): 
     os.system("shutdown /s /t 5")
 
+"""Hàm xử lí yêu cầu REG của client"""
+def REG(conn):
+    """Nhận nội dung reg"""
+    s = receive(conn)
+    with open("fileReg.reg","w") as f:
+        f.write(s)
+    
+    check = True
+    REG_PATH = DIR + "\\fileReg.reg"  
+    cmd = f"regedit.exe /s \"{REG_PATH}\""
+    
+    """Chỉnh sửa reg của máy server"""
+    try:
+        process = Popen(cmd,shell=True,creationflags = CREATE_NO_WINDOW)
+        process.wait(20)
+        process.kill()
+    except psutil.Error as e:
+        check = False
+    finally:
+        if check == True:
+            """Thành công"""
+            send(conn,"Sửa thành công")
+        else:
+            """Thất bại"""
+            send(conn,"Sửa thất bại")
+
+def baseRegistryKey(link):
+    a = None
+    if len(link.split("\\",1)) >= 0:
+        link = link.split("\\",1)[0].upper()
+        
+        if link == "HKEY_CLASSIES_ROOT":
+            a = winreg.HKEY_CLASSES_ROOT
+        elif link == "HKEY_CURRENT_USER":
+            a = winreg.HKEY_CURRENT_USER
+        elif link == "HKEY_LOCAL_MACHINE":
+            a = winreg.HKEY_LOCAL_MACHINE
+        elif link == "HKEY_USERS":
+            a = winreg.HKEY_USERS
+        elif link == "HKEY_CURRENT_CONFIG":
+            a = winreg.HKEY_CURRENT_CONFIG
+             
+    return a
+
+"""Hàm tạo key con"""
+def CreateSubKey(key,sub_key):
+    winreg.CreateKeyEx(key, sub_key, reserved=0, access=winreg.KEY_WRITE)
+    return
+
+"""Hàm xoá key"""
+def deletekey(key,sub_key):
+    def delete_sub_key(key0, current_key):
+        open_key = winreg.OpenKey(key0, current_key, 0, winreg.KEY_ALL_ACCESS)
+        info_key = winreg.QueryInfoKey(open_key)
+        for x in range(0, info_key[0]):
+            sub_key = winreg.EnumKey(open_key, 0)
+            try:
+                winreg.DeleteKey(open_key, sub_key)
+                print("Removed %s\\%s " % (current_key, sub_key))
+            except OSError:
+                delete_sub_key(key0, "\\".join([current_key,sub_key]))
+
+        winreg.DeleteKey(open_key, "")
+        open_key.Close()
+        return
+    try: 
+        delete_sub_key(key,sub_key)
+    except:
+        return "Lỗi"
+    else:
+        return "Xóa key thành công"
+    
+"""Hàm lấy giá trị"""
+def getvalue(key,sub_key,value_name):
+    try:
+        key = winreg.OpenKeyEx(key,sub_key,reserved=0, access=winreg.KEY_READ)
+    except OSError as e:
+        return "Lỗi"
+    else:
+        try:
+            value = winreg.QueryValueEx(key, value_name)
+        except OSError as e:
+            return "Lỗi"
+        else:
+            s = ""
+            if value[1] == winreg.REG_MULTI_SZ:
+                for item in value[0]:
+                    s += str(item) + " "
+            elif value[1] == winreg.REG_BINARY:
+                for item in value[0]:
+                    s += str(item)
+                    s += " "
+            else:
+                s = str(value[0])
+            return s
+
+"""Hàm ghi giá trị"""
+def setvalue(key,sub_key,value_name,value,type_value):
+    try:
+        key = winreg.OpenKeyEx(key,sub_key,0,access = winreg.KEY_ALL_ACCESS)
+    except:
+        return "Lỗi"
+    else:
+        if type_value == "String":
+            type_value = winreg.REG_SZ
+        elif type_value == "Binary":
+            type_value = winreg.REG_BINARY
+        elif type_value == "DWORD":
+            type_value = winreg.REG_DWORD
+        elif type_value == "QWORD":
+            type_value = winreg.REG_QWORD
+        elif type_value == "Multi-String":
+            type_value =winreg.REG_MULTI_SZ
+        elif type_value == "Expandable String":
+            type_value = winreg.REG_EXPAND_SZ
+        
+        try:
+            winreg.SetValueEx(key,value_name,0,type_value,value)
+        except:
+            return "Lỗi"
+        else:
+            return "Set value thành công"
+
+"""Hàm xoá giá trị"""
+def deletevalue(key,sub_key,value_name):
+    try:
+        key = winreg.OpenKeyEx(key,sub_key,0,access = winreg.KEY_ALL_ACCESS)
+    except:
+        return "Lỗi"
+    else:
+        try:
+            winreg.DeleteValue(key,value_name)
+        except:
+            return "Lỗi"
+        else:
+            return "Xóa value thành công"
+        
+"""Hàm xử lí yêu cầu registry của client"""
+def registry(conn):
+    """Tạo file .reg"""
+    with open("fileReg.reg","w") as f:
+        f.close()
+    
+    """Nhận yêu cầu của client"""
+    while True: 
+        ss = receive(conn)
+        if ss == "REG":
+            REG(conn)  
+        elif ss == "SEND":
+            option = receive(conn)
+            link = receive(conn)
+            value_name = receive(conn)
+            value = receive(conn)
+            type_value = receive(conn)
+        
+            link = fr'{link}'
+            a = baseRegistryKey(link)
+            sub_key = link.split("\\",1)[1]
+            if not a:
+                msg = "Lỗi"
+            else:
+                if option == "Create key":
+                    CreateSubKey(a,sub_key)
+                    msg = "Tạo key thành công"
+                elif option == "Delete key":
+                    msg = deletekey(a,sub_key)
+                elif option == "Get value":
+                    msg = getvalue(a,sub_key,value_name)
+                elif option == "Set value":
+                    msg = setvalue(a,sub_key,value_name,value,type_value)
+                elif option == "Delete value":
+                    msg = deletevalue(a,sub_key,value_name)
+                else:
+                    msg = "Lỗi"
+
+            send(conn, msg)
+        elif ss == "QUIT":
+            return  
+        
 """Hàm xử lí yếu cầu của client tham số là 1 socket type"""
 def handle_client(conn):
     while True:
         msg = receive(conn)
-        print(msg)
         if msg == "KEYLOG":
             key_log(conn)
         elif msg == "SHUTDOWN":
             shutdown(conn)
             break
         elif msg == "REGISTRY":
-            #registry()
+            registry(conn)
             pass
         elif msg == "TAKEPIC":
             take_pic(conn)
         elif msg == "PROCESS":
-            process_menu(conn)
+            process(conn)
         elif msg == "APPLICATION":
-            application_menu(conn)
+            application(conn)
         elif msg == "QUIT":
             conn.close()
             break
@@ -378,6 +560,7 @@ def on_closing():
     if SERVER.fileno() != -1:
         SERVER.close()      
     root.destroy()  
+    sys.exit()
 
 """Giao diện"""    
 root = tk.Tk()
@@ -394,7 +577,3 @@ connect.pack()
 
 root.protocol("WM_DELETE_WINDOW",on_closing) 
 root.mainloop()
-
-
-    
-
