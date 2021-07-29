@@ -94,23 +94,23 @@ def process(conn):
     """Hàm để diệt 1 process bằng ID"""    
     def kill(conn):
         def killID(conn):
-            msg = receive(conn)
+            id = receive(conn)
             success = False
-            if msg:
-                for proc in psutil.process_iter():
-                    if str(proc.pid) == msg:
-                        try:
-                            proc.kill()
-                            send(conn,"Đã diệt Process")
-                        except psutil.Error:
-                            send(conn,"Lỗi")
-                        else:
-                            success = True
-                            break
-                
+            if id:
+                try:
+                    proc = psutil.Process(int(id))
+                except psutil.NoSuchProcess:
+                    success = False
+                else:
+                    try: 
+                        proc.kill()
+                    except psutil.Error:
+                        send(conn,"Lỗi")
+                    else:
+                        send(conn,"Đã diệt Process")
+                        success = True
             if success == False:
                 send(conn,"Không tìm thấy chương trình")
-                return 
             
         while True:
             msg = receive(conn) 
@@ -190,27 +190,25 @@ def application(conn):
         """Hàm diệt theo ID"""
         def killID(conn):
             """Nhận app ID từ client"""
-            msg = receive(conn)
+            id = receive(conn)
             success = False
-            if msg:
-                """Tìm app trong tất cả process bằng ID"""
-                for proc in psutil.process_iter():
-                    """Nếu tìm thấy chương trình thì sẽ diệt chương trình"""
-                    if str(proc.pid) == msg:
-                        try:
-                            """Diệt thành công thì gửi trả thông báo"""
-                            proc.kill()
-                            send(conn,"Đã diệt Process")
-                        except psutil.Error:
-                            send(conn,"Lỗi")
-                        else:
-                            success = True
-                            break
+            if id:
+                try:
+                    proc = psutil.Process(int(id))
+                except psutil.NoSuchProcess:
+                    success = False
+                else:
+                    try: 
+                        proc.kill()
+                    except psutil.Error:
+                        send(conn,"Lỗi")
+                    else:
+                        send(conn,"Đã diệt App")
+                        success = True
                         
             """Không tìm thấy chương trình thì gửi thông báo cho client"""
             if success == False:
                 send(conn,"Không tìm thấy chương trình")
-                return 
             
         """Hàm xử lí yêu cầu của client để diệt app"""    
         
