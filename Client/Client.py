@@ -11,6 +11,7 @@ import socket
 import os
 import codecs
 import sys
+import struct
 
 PORT = 5050
 HEADER = 64
@@ -482,18 +483,24 @@ def keylog_menu():
 def screen_shot_menu():
     """Hàm gửi yêu cầu và nhận hình từ SERVER"""
     def take_pic():
+        def recv_exactly(n):
+            recv_buf = b''
+            remaining_bytes = n
+            while remaining_bytes > 0:
+                count = remaining_bytes if remaining_bytes < 4096 else 4096
+                buff = CLIENT.recv(count)
+                if not buff:
+                    raise Exception("Connection closed in middle of expected buffer")
+                recv_buf += buff
+                remaining_bytes -= len(buff)
+            return recv_buf
         send("TAKE")
         global img_save
-        length_img = receive()
-        length_img = int(length_img)
-        print(length_img)
-        img_size = receive()
-        img_size = eval(img_size)
-        
-        img_mode = receive()
-        
-        img = CLIENT.recv(length_img)  
-        img = Image.frombytes(img_mode,img_size,img)
+        buff = recv_exactly(12)
+        img_size, width, height = struct.unpack("!III", buff)
+        img = recv_exactly(img_size)
+         
+        img = Image.frombytes("RGB",(int(width),int(height)),img)
         img = img.resize((600,400), Image.ANTIALIAS)
         img_save = img
         pic = ImageTk.PhotoImage(img)

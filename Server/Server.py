@@ -3,6 +3,7 @@ import threading
 import os
 import winreg   
 import sys
+import struct
 
 import tkinter as tk
 from tkinter import messagebox
@@ -323,17 +324,11 @@ def key_log(conn):
 def takeScreenshot(conn):
     """Chụp màn hình"""
     img = pyautogui.screenshot()
+    raw_image = img.tobytes()
     
-    """Lấy độ dài của bytes hình ảnh"""
-    length_img = len(img.tobytes())
-    
-    """Gửi lần lượt độ dài bytes, kích thước, với chế độ của hình ảnh cho client"""
-    send(conn,str(length_img))
-    send(conn,str(img.size))
-    send(conn,str(img.mode))
-    
-    """Gửi toàn bộ bytes hình ảnh qua cho client"""
-    conn.send(img.tobytes())
+    buff = struct.pack("!III", len(raw_image), img.width, img.height)
+    conn.sendall(buff)          
+    conn.sendall(raw_image) 
   
 """Hàm xử lí yếu cầu chụp màn hình của server"""
 def take_pic(conn):
