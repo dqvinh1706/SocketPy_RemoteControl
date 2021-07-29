@@ -560,7 +560,7 @@ def registry_menu():
                 text_reg.delete(1.0, tk.END)
                 text_reg.insert('1.0', data)
         else:
-            messagebox.showerror("File","File is not chosen")
+            messagebox.showerror("File","File is not chosen",parent = registry_window)
     
     """Gửi yêu cầu và nội dung chỉnh sửa qua SERVER"""        
     def open_reg_file_to_text():
@@ -625,7 +625,8 @@ def registry_menu():
     """Điền giá trị vào text box"""
     def insert_to_text_box(s):
         value_text['state'] = 'normal'
-        value_text.insert(tk.INSERT,s + "\n")
+        s += "\n"
+        value_text.insert(tk.END,s)
         value_text['state'] = 'disabled'
     """Xoá chữ trong ô text"""    
     def xoa():
@@ -782,6 +783,7 @@ def root_closing():
         finally:
             CLIENT.close()
     root.destroy()
+    sys.exit()
        
 """Menu chính"""    
 root = tk.Tk()
