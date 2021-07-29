@@ -84,6 +84,8 @@ def enabledButton(list_buttons):
 def process_menu():
     """Hàm xem process list"""
     def Xem():
+        for but in list_of_buttons:
+            but['state'] = 'disabled'
         """Gửi lệnh XEM"""
         send("XEM")
         process_list = []
@@ -97,17 +99,19 @@ def process_menu():
             s3 = receive()
             proc = (s1,s2,s3)
             process_list.append(proc)
+        
+        for but in list_of_buttons:
+            but['state'] = 'normal'
             
         for i in tree.get_children():
             tree.delete(i)
             
         for item in process_list:
-                tree.insert('', 'end', values=item)
-                # adjust column's width if necessary to fit each value
-                for ix, val in enumerate(item): 
-                    col_w = tkFont.Font().measure(val)
-                    if tree.column(headers[ix],width=None)<col_w:
-                        tree.column(headers[ix], width=col_w)
+            tree.insert('', 'end', values=item)
+            for ix, val in enumerate(item): 
+                col_w = tkFont.Font().measure(val)
+                if tree.column(headers[ix],width=None)<col_w:
+                    tree.column(headers[ix], width=col_w)
     
     """Giao diện của diệt process""" 
     def kill_form():
@@ -247,6 +251,8 @@ def process_menu():
 def app_menu():
     """Hàm để xem app running""" 
     def Xem(): 
+        for but in list_of_buttons:
+            but['state'] = 'disabled'
         """Gửi lệnh XEM"""
         send("XEM")
         process_list = []
@@ -260,7 +266,9 @@ def app_menu():
             s3 = receive()
             proc = (s1,s2,s3)
             process_list.append(proc)
-            
+        
+        for but in list_of_buttons:
+            but['state'] = 'normal'
         for i in tree.get_children():
             tree.delete(i)
          
