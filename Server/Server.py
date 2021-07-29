@@ -70,10 +70,16 @@ def process(conn):
     def xem(conn):
         list_process = []
         countProcess = 0
-        for proc in psutil.process_iter():
-            countProcess += 1
-            proc_dict = proc.as_dict(['name','pid','num_threads'])
-            list_process.append(proc_dict)  
+        pids = psutil.pids()
+        for id in pids:
+            try:
+                proc = psutil.Process(id)
+            except OSError:
+                pass
+            else:
+                countProcess += 1
+                proc_dict = proc.as_dict(['name','pid','num_threads'])
+                list_process.append(proc_dict) 
                    
         """Gửi process qua client"""
         send(conn,str(countProcess))
@@ -154,19 +160,23 @@ def application(conn):
         proc = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE)
         for line in proc.stdout:
             if not line.decode()[0].isspace():
-                countProcess += 1
                 str_list.append(line.decode().rstrip())
 
         str_list.pop(0)
         str_list.pop(0)
         for i in str_list:
             id = i.rsplit(' ',1)
-            proc = psutil.Process(int(id[1]))
-            proc_dict = proc.as_dict(['name','pid','num_threads'])
-            list_process.append(proc_dict)
+            try:
+                proc = psutil.Process(int(id[1]))
+            except:
+                pass
+            else:
+                countProcess += 1
+                proc_dict = proc.as_dict(['name','pid','num_threads'])
+                list_process.append(proc_dict)
         
         """Gửi trả danh sách các chương trình đang chạy cho client"""
-        send(conn,str(countProcess - 2))
+        send(conn,str(countProcess))
         for proc in list_process:
             name = proc['name']
             send(conn,name)
